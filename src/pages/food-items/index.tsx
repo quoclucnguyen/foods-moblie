@@ -12,6 +12,7 @@ import {
   Input,
   List,
   Popup,
+  PullToRefresh,
   Selector,
   SwipeAction,
   Toast,
@@ -28,11 +29,13 @@ import {
   ADD_FOOD_ITEM,
   GET_LIST_FOOD_ITEMS,
   GET_LIST_LOCATION,
+  UPDATE_FOOD_ITEM,
 } from './graphql'
 import {
   FoodItemEntity,
   FoodItemsPaginationInput,
   FoodItemsQueryResult,
+  FoodItemStatus,
   LocationQueryResult,
 } from './interface'
 
@@ -75,25 +78,50 @@ function FoodItems() {
   ] = useMutation(ADD_FOOD_ITEM)
 
   /**
+   * Update food item
+   */
+  const [
+    updateFoodItem,
+    { loading: updateFoodItemLoading, error: updateFoodItemError },
+  ] = useMutation(UPDATE_FOOD_ITEM)
+
+  /**
    * END graphql
    */
 
-  async function loadMore() {
-    setQueryPagination({
-      ...queryPagination,
-      skip: dataSource.length,
-    })
-    const result = await getListFoodItem({
-      variables: {
-        pagination: {
-          ...queryPagination,
-          skip: dataSource.length,
+  async function loadMore(pagination?: FoodItemsPaginationInput) {
+    if (pagination) {
+      setQueryPagination(pagination)
+      const result = await getListFoodItem({
+        variables: {
+          pagination: {
+            ...queryPagination,
+            skip: 0,
+          },
         },
-      },
-    })
-    if (result.data?.foodItems) {
-      setDataSource([...dataSource, ...(result.data?.foodItems?.items ?? [])])
-      setHasMore(dataSource.length < result.data.foodItems.total)
+      })
+
+      if (result.data?.foodItems) {
+        setDataSource([...(result.data?.foodItems?.items ?? [])])
+        setHasMore(dataSource.length < result.data.foodItems.total)
+      }
+    } else {
+      setQueryPagination({
+        ...queryPagination,
+        skip: dataSource.length,
+      })
+      const result = await getListFoodItem({
+        variables: {
+          pagination: {
+            ...queryPagination,
+            skip: dataSource.length,
+          },
+        },
+      })
+      if (result.data?.foodItems) {
+        setDataSource([...dataSource, ...(result.data?.foodItems?.items ?? [])])
+        setHasMore(dataSource.length < result.data.foodItems.total)
+      }
     }
   }
 
@@ -126,7 +154,6 @@ function FoodItems() {
             </Button>
           }
           onFinish={async (values: any) => {
-            console.log(values)
             Toast.show({
               icon: 'loading',
               content: 'Loading...',
@@ -147,13 +174,15 @@ function FoodItems() {
               })
               addFoodItemFormRef.current?.resetFields()
               setAddFoodItemVisible(false)
-              loadMore()
+              loadMore({
+                skip: 0,
+              })
             }
           }}
         >
           <Form.Header>Add Food Items</Form.Header>
           <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-            <Input placeholder="Name of food" />
+            <Input placeholder="Name of food" autoComplete="false" />
           </Form.Item>
           <Form.Item
             name="locationId"
@@ -198,66 +227,124 @@ function FoodItems() {
       {/**
        * Hiển thị danh sách food items
        */}
-      <List header="Food Items" style={{ width: '100%' }}>
-        {dataSource?.map((item) => {
-          const dateEndString = new Date(
-            item.dateEnd ?? '',
-          ).toLocaleDateString()
-          return (
-            <SwipeAction
-              key={item.id}
-              leftActions={[
-                {
-                  key: 'EAT',
-                  text: 'Eat',
-                  onClick: (e) => {},
-                  color: '#1890ff',
-                },
-              ]}
-              rightActions={[
-                {
-                  key: 'DELETE',
-                  text: 'Delete',
-                  onClick: (e) => {
-                    const deleteDialog = Dialog.show({
-                      header: 'Confirm delete this?',
-                      closeOnAction: false,
-                      actions: [
-                        [
-                          {
-                            key: 'cancel',
-                            text: 'Cancel',
+      <PullToRefresh
+        onRefresh={async () => {
+          setQueryPagination({
+            ...queryPagination,
+            skip: 0,
+          })
+
+          const data = await getListFoodItem({
+            variables: {
+              pagination: {
+                ...queryPagination,
+                skip: 0,
+              },
+            },
+          })
+          if (data?.data?.foodItems) {
+            setDataSource(data.data.foodItems.items)
+          }
+        }}
+        pullingText="Pull to refresh"
+        refreshingText="Refreshing..."
+        completeText="Refresh complete"
+        canReleaseText="Release to refresh"
+      >
+        <List header="Food Items" style={{ width: '100%' }}>
+          {dataSource?.map((item) => {
+            const dateEndString = new Date(
+              item?.dateEnd ?? '',
+            ).toLocaleDateString()
+            return (
+              <SwipeAction
+                key={item.id}
+                leftActions={[
+                  {
+                    key: 'EAT',
+                    text: 'Eat',
+                    onClick: async () => {
+                      await updateFoodItem({
+                        variables: {
+                          updateFoodItemInput: {
+                            id: item.id,
+                            status: FoodItemStatus.EATEN,
                           },
-                          {
-                            key: 'delete',
-                            text: 'Delete',
-                            bold: true,
-                            danger: true,
-                          },
-                        ],
-                      ],
-                      onAction: async (dialog, action) => {
-                        await setTimeout(() => {}, 1000)
-                        console.log({
-                          dialog,
-                          action,
-                        })
-                        // deleteDialog.close()
-                      },
-                      // confirmText: 'Delete',
-                      // cancelText: 'Cancel',
-                      content: `${item.name} - ${item.id}`,
-                    })
+                        },
+                      })
+                      const id = dataSource.findIndex(
+                        (foodItem) => foodItem?.id === item.id,
+                      )
+                      const itemUpdate = {
+                        ...dataSource[id],
+                        status: FoodItemStatus.EATEN.toString(),
+                      }
+                      const list = dataSource.filter(
+                        (foodItem) => foodItem?.id !== item.id,
+                      )
+                      list.splice(id, 0, itemUpdate)
+
+                      // dataSource[id] = itemUpdate
+                      setDataSource(list)
+                      Toast.show({
+                        icon: 'success',
+                        content: 'Eating',
+                      })
+                    },
+                    color: '#1890ff',
                   },
-                  color: 'danger',
-                },
-              ]}
-              onAction={(action, e) => {
-                console.log(action)
-                console.log(e)
-              }}
-            >
-              
+                ]}
+                rightActions={[
+                  {
+                    key: 'DELETE',
+                    text: 'Delete',
+                    onClick: (e) => {
+                      const deleteDialog = Dialog.show({
+                        header: 'Confirm delete this?',
+                        closeOnAction: false,
+                        actions: [
+                          [
+                            {
+                              key: 'cancel',
+                              text: 'Cancel',
+                            },
+                            {
+                              key: 'delete',
+                              text: 'Delete',
+                              bold: true,
+                              danger: true,
+                              onClick: async () => {
+                                await updateFoodItem({
+                                  variables: {
+                                    updateFoodItemInput: {
+                                      id: item.id,
+                                      isActive: false,
+                                    },
+                                  },
+                                })
+                                setDataSource(
+                                  dataSource.filter(
+                                    (foodItem) => foodItem.id !== item.id,
+                                  ),
+                                )
+                                deleteDialog.close()
+                                Toast.show({
+                                  icon: 'success',
+                                  content: 'Deleted',
+                                })
+                              },
+                            },
+                          ],
+                        ],
+
+                        content: `${item.name} - ${item?.location?.name}`,
+                      })
+                    },
+                    color: 'danger',
+                  },
+                ]}
+                onAction={(action, e) => {}}
+              >
                 <List.Item
                   key={item.id}
                   description={dateEndString}
@@ -267,13 +354,17 @@ function FoodItems() {
                     {item?.location?.name}
                   </span>
                   <br />
-                  <span className="">{item?.name}</span>
+                  <span
+                    className={item.status === 'EATEN' ? 'line-through' : ''}
+                  >
+                    {item?.name}
+                  </span>
                 </List.Item>
-              
-            </SwipeAction>
-          )
-        })}
-      </List>
+              </SwipeAction>
+            )
+          })}
+        </List>
+      </PullToRefresh>
       <InfiniteScroll hasMore={hasMore} loadMore={loadMore}>
         {hasMore ? (
           <>

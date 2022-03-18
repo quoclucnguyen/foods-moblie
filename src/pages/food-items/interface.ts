@@ -31,3 +31,8 @@ export interface FoodItemsPaginationInput extends QueryPaginationInput {
 export interface LocationQueryResult {
     locations: Location[];
 }
+
+export enum FoodItemStatus {
+    NEW = 'NEW',
+    EATEN = 'EATEN'
+}

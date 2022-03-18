@@ -9,6 +9,7 @@ query FoodItems($pagination: FoodItemPagination!) {
       createdAt
       name
       dateEnd
+      status
       location {
         id
         name
@@ -34,3 +35,10 @@ query Locations {
 }
 `
 
+export const UPDATE_FOOD_ITEM = gql`
+mutation UpdateFoodItem($updateFoodItemInput: UpdateFoodItemInput!) {
+  updateFoodItem(updateFoodItemInput: $updateFoodItemInput) {
+    id
+    name
+  }
+}`
