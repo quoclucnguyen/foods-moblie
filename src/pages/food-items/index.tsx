@@ -15,6 +15,7 @@ import {
   PullToRefresh,
   Selector,
   SwipeAction,
+  Switch,
   Toast,
 } from 'antd-mobile'
 import {
@@ -41,8 +42,13 @@ import {
 
 function FoodItems() {
   const addFoodItemFormRef = React.useRef<FormInstance>(null)
+  const updateFoodItemFormRef = React.useRef<FormInstance>(null)
+  const [foodItemUpdate, setFoodItemUpdate] = useState<FoodItemEntity | null>(
+    null,
+  )
   const [hasMore, setHasMore] = useState(true)
   const [addFoodItemVisible, setAddFoodItemVisible] = useState(false)
+  const [updateFoodItemVisible, setUpdateFoodItemVisible] = useState(false)
   const [dateEndVisible, setDateEndVisible] = useState(false)
   const [dataSource, setDataSource] = useState<FoodItemEntity[]>([])
   const [queryPagination, setQueryPagination] = useState<
@@ -50,6 +56,22 @@ function FoodItems() {
   >({
     take: 10,
   })
+  let foodItemForUpdate: FoodItemEntity | null = null
+  const [isUpdatingFoodItem, setIsUpdatingFoodItem] = useState(false)
+  /**
+   * If isUpdatingFoodItem is true, then we are updating a food item
+   * We open popup and form to update food item
+   */
+  useEffect(() => {
+    if (isUpdatingFoodItem) {
+      setUpdateFoodItemVisible(true)
+      updateFoodItemFormRef.current?.resetFields()
+    } else {
+      setUpdateFoodItemVisible(false)
+      updateFoodItemFormRef.current?.resetFields()
+    }
+  }, [isUpdatingFoodItem])
+
   /**
    * BEGIN graphql
    */
@@ -139,6 +161,9 @@ function FoodItems() {
       >
         <AddCircleOutline fontSize={28} />
       </FloatingBubble>
+      {/**
+       * BEGIN form add food item
+       */}
       <Popup
         visible={addFoodItemVisible}
         onMaskClick={() => {
@@ -223,6 +248,129 @@ function FoodItems() {
           </Form.Item>
         </Form>
       </Popup>
+      {/**
+       * END form add food item
+       */}
+
+      {/**
+       * BEGIN form update food item
+       */}
+      <Popup
+        visible={updateFoodItemVisible}
+        onMaskClick={() => {
+          setIsUpdatingFoodItem(false)
+          setFoodItemUpdate(null)
+          updateFoodItemFormRef.current?.resetFields()
+        }}
+      >
+        <Form
+          ref={updateFoodItemFormRef}
+          footer={
+            <Button block type="submit" color="primary" size="large">
+              Save
+            </Button>
+          }
+          onFinishFailed={(error) => {
+            console.log(error)
+          }}
+          onFinish={async (values: any) => {
+            console.log(values)
+
+            Toast.show({
+              icon: 'loading',
+              content: 'Loading...',
+            })
+            const updateFoodItemMutation = await updateFoodItem({
+              variables: {
+                updateFoodItemInput: {
+                  name: values.name,
+                  locationId: values.locationId[0],
+                  dateEnd: values.dateEnd,
+                  status: values.status ? 'EATEN' : 'NEW',
+                  id: foodItemUpdate?.id,
+                },
+              },
+            })
+            if (updateFoodItemMutation.data) {
+              Toast.show({
+                icon: 'success',
+                content: 'Success',
+              })
+              updateFoodItemFormRef.current?.resetFields()
+              setIsUpdatingFoodItem(false)
+              setFoodItemUpdate(null)
+              loadMore({
+                skip: 0,
+              })
+            }
+          }}
+        >
+          <Form.Header>
+            Update Food Item {foodItemUpdate ? foodItemUpdate.name ?? '' : ''}
+          </Form.Header>
+          <Form.Item
+            name="name"
+            label="Name"
+            rules={[{ required: true }]}
+            initialValue={foodItemUpdate?.name}
+          >
+            <Input
+              placeholder="Name of food"
+              autoComplete="false"
+              value={foodItemUpdate?.name}
+            />
+          </Form.Item>
+          <Form.Item
+            name="locationId"
+            label="Location"
+            rules={[{ required: true }]}
+            initialValue={[foodItemUpdate?.location?.id]}
+          >
+            <Selector
+              options={
+                locations?.locations?.map((location) => {
+                  return {
+                    label: location.name,
+                    value: location.id,
+                  }
+                }) ?? []
+              }
+            />
+          </Form.Item>
+          <Form.Item
+            name="dateEnd"
+            label="Date End"
+            trigger="onConfirm"
+            onClick={() => {
+              setDateEndVisible(true)
+            }}
+            rules={[{ required: true }]}
+            initialValue={new Date(foodItemUpdate?.dateEnd ?? '')}
+          >
+            <DatePicker
+              visible={dateEndVisible}
+              onClose={() => {
+                setDateEndVisible(false)
+              }}
+            >
+              {(value) => {
+                return value?.toLocaleDateString() ?? ''
+              }}
+            </DatePicker>
+          </Form.Item>
+          <Form.Item
+            name="status"
+            label="Status"
+            initialValue={foodItemUpdate?.status === 'EATEN'}
+          >
+            <Switch defaultChecked={foodItemUpdate?.status === 'EATEN'} />
+          </Form.Item>
+        </Form>
+      </Popup>
+
+      {/**
+       * END form update food item
+       */}
 
       {/**
        * Hiển thị danh sách food items
@@ -259,42 +407,56 @@ function FoodItems() {
             return (
               <SwipeAction
                 key={item.id}
-                leftActions={[
-                  {
-                    key: 'EAT',
-                    text: 'Eat',
-                    onClick: async () => {
-                      await updateFoodItem({
-                        variables: {
-                          updateFoodItemInput: {
-                            id: item.id,
-                            status: FoodItemStatus.EATEN,
-                          },
+                leftActions={
+                  item.status === FoodItemStatus.EATEN ? [] :
+                    [
+                      {
+                        key: 'EAT',
+                        text: 'Eat',
+                        onClick: async () => {
+                          await updateFoodItem({
+                            variables: {
+                              updateFoodItemInput: {
+                                id: item.id,
+                                status: FoodItemStatus.EATEN,
+                              },
+                            },
+                          })
+                          const id = dataSource.findIndex(
+                            (foodItem) => foodItem?.id === item.id,
+                          )
+                          const itemUpdate = {
+                            ...dataSource[id],
+                            status: FoodItemStatus.EATEN.toString(),
+                          }
+                          const list = dataSource.filter(
+                            (foodItem) => foodItem?.id !== item.id,
+                          )
+                          list.splice(id, 0, itemUpdate)
+                          setDataSource(list)
+                          Toast.show({
+                            icon: 'success',
+                            content: 'Eating',
+                          })
                         },
-                      })
-                      const id = dataSource.findIndex(
-                        (foodItem) => foodItem?.id === item.id,
-                      )
-                      const itemUpdate = {
-                        ...dataSource[id],
-                        status: FoodItemStatus.EATEN.toString(),
-                      }
-                      const list = dataSource.filter(
-                        (foodItem) => foodItem?.id !== item.id,
-                      )
-                      list.splice(id, 0, itemUpdate)
+                        color: 'success',
 
-                      // dataSource[id] = itemUpdate
-                      setDataSource(list)
-                      Toast.show({
-                        icon: 'success',
-                        content: 'Eating',
-                      })
-                    },
-                    color: '#1890ff',
-                  },
-                ]}
+                      }
+                    ]}
                 rightActions={[
+                  {
+                    key: 'UPDATE',
+                    text: 'Update',
+                    onClick: (e) => {
+                      setIsUpdatingFoodItem(true)
+                      setFoodItemUpdate(
+                        dataSource.find(
+                          (foodItem) => foodItem?.id === item.id,
+                        ) ?? null,
+                      )
+                    },
+                    color: 'light',
+                  },
                   {
                     key: 'DELETE',
                     text: 'Delete',
@@ -307,6 +469,9 @@ function FoodItems() {
                             {
                               key: 'cancel',
                               text: 'Cancel',
+                              onClick: () => {
+                                deleteDialog.close()
+                              },
                             },
                             {
                               key: 'delete',
@@ -343,7 +508,7 @@ function FoodItems() {
                     color: 'danger',
                   },
                 ]}
-                onAction={(action, e) => {}}
+                onAction={(action, e) => { }}
               >
                 <List.Item
                   key={item.id}
