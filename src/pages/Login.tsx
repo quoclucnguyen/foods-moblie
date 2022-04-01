@@ -27,6 +27,7 @@ function Login() {
       process.env.REACT_APP_DOMAIN + '/auth/login',
       {
         ...values,
+        deviceId: localStorage.getItem('tokenFcm') || '',
         type: 'WEB',
       },
     )
