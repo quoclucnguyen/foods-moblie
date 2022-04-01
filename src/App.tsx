@@ -91,12 +91,45 @@ function NotificationAlertProviver({
   )
 }
 
+/**
+ * isHasUnReadNotification Context
+ */
+interface IsHasUnReadNotificationContextType {
+  isHasUnRead: boolean,
+  set: (value: boolean) => void,
+}
+const IsHasUnReadNotificationContext = createContext<IsHasUnReadNotificationContextType>(null!)
+const isHasUnReadNotificationProvider = {
+  isHasUnReadNotification: false,
+  set(value: boolean) {
+    isHasUnReadNotificationProvider.isHasUnReadNotification = value
+  }
+}
+function IsHasUnReadNotificationProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  let [isHasUnRead, setisHasUnRead] = useState<boolean>(false)
+
+  let set = (value: boolean) => {
+    setisHasUnRead(value)
+  }
+  return (
+    <IsHasUnReadNotificationContext.Provider value={{ isHasUnRead, set }}>
+      {children}
+    </IsHasUnReadNotificationContext.Provider>
+  )
+}
 export function useAuth() {
   return useContext(AuthContext)
 }
 
 export function useNotificationAlert() {
   return useContext(NotificationAlertContext)
+}
+export function useIsHasUnReadNotification() {
+  return useContext(IsHasUnReadNotificationContext)
 }
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -176,39 +209,41 @@ function App() {
   return (
     <AuthProvider>
       <NotificationAlertProviver>
-        <ApolloProvider client={client}>
-          <Routes>
-            <Route path="/" element={<MainLayout />}>
-              <Route
-                index
-                element={
-                  <RequireAuth>
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="food-items"
-                element={
-                  <RequireAuth>
-                    <FoodItems />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="notifications"
-                element={
-                  <RequireAuth>
-                    <Notifications />
-                  </RequireAuth>
-                }
-              />
-            </Route>
-            <Route path="/login" element={<LoginLayout />}>
-              <Route index element={<Login />} />
-            </Route>
-          </Routes>
-        </ApolloProvider>
+        <IsHasUnReadNotificationProvider>
+          <ApolloProvider client={client}>
+            <Routes>
+              <Route path="/" element={<MainLayout />}>
+                <Route
+                  index
+                  element={
+                    <RequireAuth>
+                      <Dashboard />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="food-items"
+                  element={
+                    <RequireAuth>
+                      <FoodItems />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="notifications"
+                  element={
+                    <RequireAuth>
+                      <Notifications />
+                    </RequireAuth>
+                  }
+                />
+              </Route>
+              <Route path="/login" element={<LoginLayout />}>
+                <Route index element={<Login />} />
+              </Route>
+            </Routes>
+          </ApolloProvider>
+        </IsHasUnReadNotificationProvider>
       </NotificationAlertProviver>
     </AuthProvider>
   )

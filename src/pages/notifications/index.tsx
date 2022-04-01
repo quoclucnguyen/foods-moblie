@@ -26,42 +26,22 @@ import {
 } from 'antd-mobile-icons'
 import { FormInstance } from 'antd-mobile/es/components/form'
 import React, { useEffect, useState } from 'react'
+import { useIsHasUnReadNotification } from '../../App'
 import {
-  ADD_FOOD_ITEM,
-
-  GET_LIST_LOCATION,
-  GET_LIST_NOTIFICATION,
-  UPDATE_FOOD_ITEM,
+  GET_LIST_NOTIFICATION, UPDATE_NOTIFICATION,
 } from './graphql'
 import { NotificationEntity, NotificationPaginationInput, NotificationQueryResult, NotificationStatus } from './interface'
 
 function Notifications() {
-  const addFoodItemFormRef = React.useRef<FormInstance>(null)
-  const updateFoodItemFormRef = React.useRef<FormInstance>(null)
+
   const [hasMore, setHasMore] = useState(true)
-  const [addFoodItemVisible, setAddFoodItemVisible] = useState(false)
-  const [updateFoodItemVisible, setUpdateFoodItemVisible] = useState(false)
-  const [dateEndVisible, setDateEndVisible] = useState(false)
   const [dataSource, setDataSource] = useState<NotificationEntity[]>([])
   const [queryPagination, setQueryPagination] = useState<
     NotificationPaginationInput
   >({
     take: 10,
   })
-  const [isUpdatingFoodItem, setIsUpdatingFoodItem] = useState(false)
-  /**
-   * If isUpdatingFoodItem is true, then we are updating a food item
-   * We open popup and form to update food item
-   */
-  useEffect(() => {
-    if (isUpdatingFoodItem) {
-      setUpdateFoodItemVisible(true)
-      updateFoodItemFormRef.current?.resetFields()
-    } else {
-      setUpdateFoodItemVisible(false)
-      updateFoodItemFormRef.current?.resetFields()
-    }
-  }, [isUpdatingFoodItem])
+  const isHasUnReadNotification = useIsHasUnReadNotification()
 
   /**
    * BEGIN graphql
@@ -78,16 +58,24 @@ function Notifications() {
 
 
   /**
-   * Update food item
+   * Update notification status
    */
   const [
-    updateFoodItem,
-    { loading: updateFoodItemLoading, error: updateFoodItemError },
-  ] = useMutation(UPDATE_FOOD_ITEM)
+    updateNotification,
+    { loading: updateNotificationLoading, error: updateNotificationError },
+  ] = useMutation(UPDATE_NOTIFICATION)
 
   /**
    * END graphql
    */
+  useEffect(() => {
+    const unReadNotification = dataSource.find(item => item.status === NotificationStatus.NEW)
+    if (unReadNotification) {
+      isHasUnReadNotification.set(true)
+    } else {
+      isHasUnReadNotification.set(false)
+    }
+  }, [dataSource])
 
   async function loadMore(pagination?: NotificationPaginationInput) {
     if (pagination) {
@@ -128,10 +116,6 @@ function Notifications() {
   return (
     <div style={{ width: '100%' }}>
 
-
-
-
-
       {/**
        * Hiển thị danh sách food items
        */}
@@ -168,15 +152,15 @@ function Notifications() {
               <SwipeAction
                 key={item.id}
                 leftActions={
-                  item.status === NotificationStatus.READ ? [] :
+                  item.status === NotificationStatus.NEW ? [] :
                     [
                       {
                         key: 'UNREAD',
                         text: 'Unread',
                         onClick: async () => {
-                          await updateFoodItem({
+                          await updateNotification({
                             variables: {
-                              updateFoodItemInput: {
+                              updateNotificationInput: {
                                 id: item.id,
                                 status: NotificationStatus.NEW,
                               },
@@ -187,7 +171,7 @@ function Notifications() {
                           )
                           const itemUpdate = {
                             ...dataSource[id],
-                            status: NotificationStatus.READ.toString(),
+                            status: NotificationStatus.NEW.toString(),
                           }
                           const list = dataSource.filter(
                             (notification) => notification?.id !== item.id,
@@ -208,14 +192,48 @@ function Notifications() {
                 <List.Item
                   key={item.id}
                   description={createdDate}
-                  prefix={<GiftOutline />}
+                  className={item.status === NotificationStatus.READ ? '' : 'bg-slate-200'}
+                  onClick={async () => {
+                    if (item.status === NotificationStatus.NEW) {
+                      Toast.show({
+                        icon: 'loading',
+                        content: 'Loading...',
+                      })
+                      const updateNotificationMutation = await updateNotification({
+                        variables: {
+                          updateNotificationInput: {
+                            id: item.id,
+                            status: NotificationStatus.READ,
+                          },
+                        }
+                      })
+                      if (updateNotificationMutation.data) {
+                        const id = dataSource.findIndex(
+                          (foodItem) => foodItem?.id === item.id,
+                        )
+                        const itemUpdate = {
+                          ...dataSource[id],
+                          status: NotificationStatus.READ.toString(),
+                        }
+                        const list = dataSource.filter(
+                          (notification) => notification?.id !== item.id,
+                        )
+                        list.splice(id, 0, itemUpdate)
+                        setDataSource(list)
+                        Toast.show({
+                          icon: 'success',
+                          content: 'Success',
+                        })
+                      }
+                    }
+                  }}
                 >
-                  <span className="text-sm font-bold text-gray-500">
+                  <span className="font-bold text-gray-500">
                     {item?.title}
                   </span>
                   <br />
                   <span
-                    className={item.status === NotificationStatus.READ ? 'line-through' : ''}
+                    className='text-sm'
                   >
                     {item?.message}
                   </span>

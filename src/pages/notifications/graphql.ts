@@ -3,40 +3,24 @@ import { gql } from "@apollo/client";
 export const GET_LIST_NOTIFICATION = gql`
 query Notifications($pagination: NotificationPagination) {
   notifications(pagination: $pagination) {
-    id
-    message
-    title
-    createdAt
-    status
-    user {
-      username
+    total
+    items {
       id
-      name
+      title
+      message
+      status
+      createdAt
+      user {
+        username
+      }
     }
   }
 }
 `
-export const ADD_FOOD_ITEM = gql`
-mutation CreateFoodItem($createFoodItemInput: CreateFoodItemInput!) {
-  createFoodItem(createFoodItemInput: $createFoodItemInput) {
-    id
-  }
-}
-`
 
-export const GET_LIST_LOCATION = gql`
-query Locations {
-  locations {
+export const UPDATE_NOTIFICATION = gql`
+mutation UpdateNotification($updateNotificationInput: UpdateNotificationInput!) {
+  updateNotification(updateNotificationInput: $updateNotificationInput) {
     id
-    name
-  }
-}
-`
-
-export const UPDATE_FOOD_ITEM = gql`
-mutation UpdateFoodItem($updateFoodItemInput: UpdateFoodItemInput!) {
-  updateFoodItem(updateFoodItemInput: $updateFoodItemInput) {
-    id
-    name
   }
 }`
