@@ -1,14 +1,17 @@
-import { Badge, NavBar, TabBar } from 'antd-mobile'
+import { Badge, NavBar, NoticeBar, TabBar } from 'antd-mobile'
 import {
   AppOutline,
   BellOutline,
+  CloseCircleOutline,
+  CompassOutline,
   MessageOutline,
   SetOutline,
   UnorderedListOutline,
   UserOutline,
 } from 'antd-mobile-icons'
 import { TabBarItem } from 'antd-mobile/es/components/tab-bar/tab-bar'
-import React, { FC } from 'react'
+import { getMessaging, onMessage } from 'firebase/messaging'
+import React, { FC, useState } from 'react'
 import { Outlet, Router, useLocation, useNavigate } from 'react-router'
 import { useIsHasUnReadNotification } from '../App'
 interface BottomProps {
@@ -59,9 +62,33 @@ const Bottom = (props: BottomProps) => {
 
 function MainLayout() {
   const isHasUnReadNotification = useIsHasUnReadNotification()
+  const [notification, setNotification] = useState<Boolean | null>(null)
+  /**
+   * BEGIN process FCM received
+   */
+  const messaging = getMessaging();
+  onMessage(messaging, (payload) => {
+    console.log('Message received. ', payload);
+    setNotification(true)
+  });
+
+  /**
+   * END process FCM received
+   */
   return (
     <div className="app">
-      <div className="top"></div>
+      <div className="top">
+        {
+          notification ? (
+            <NoticeBar
+              content={'自定义图标'}
+              closeable={true}
+
+            />
+          ) : null
+        }
+
+      </div>
       <div className="body">
         <Outlet />
       </div>

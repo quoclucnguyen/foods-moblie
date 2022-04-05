@@ -31,6 +31,7 @@ import { onError } from '@apollo/client/link/error'
 import { initializeApp } from "firebase/app"
 import { getMessaging, onMessage } from 'firebase/messaging'
 import Notifications from './pages/notifications'
+import Settings from './pages/settings'
 /**
  * Auth provider
  */
@@ -42,7 +43,7 @@ const authProvider = {
   },
   signout(callback: VoidFunction) {
     authProvider.isAuthenticated = false
-    // removeUserLogin()
+    removeUserLogin()
     callback()
   },
 }
@@ -194,18 +195,7 @@ function App() {
       })
     }
   }, [isAuthenticated])
-  /**
-   * BEGIN process FCM received
-   */
-  const messaging = getMessaging();
-  onMessage(messaging, (payload) => {
-    console.log('Message received. ', payload);
-    // ...
-  });
-
-  /**
-   * END process FCM received
-   */
+  
   return (
     <AuthProvider>
       <NotificationAlertProviver>
@@ -234,6 +224,14 @@ function App() {
                   element={
                     <RequireAuth>
                       <Notifications />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="settings"
+                  element={
+                    <RequireAuth>
+                      <Settings />
                     </RequireAuth>
                   }
                 />
