@@ -10,7 +10,7 @@ import {
   UserOutline,
 } from 'antd-mobile-icons'
 import { TabBarItem } from 'antd-mobile/es/components/tab-bar/tab-bar'
-import { getMessaging, onMessage } from 'firebase/messaging'
+import { getMessaging, MessagePayload, onMessage } from 'firebase/messaging'
 import React, { FC, useState } from 'react'
 import { Outlet, Router, useLocation, useNavigate } from 'react-router'
 import { useIsHasUnReadNotification } from '../App'
@@ -62,14 +62,14 @@ const Bottom = (props: BottomProps) => {
 
 function MainLayout() {
   const isHasUnReadNotification = useIsHasUnReadNotification()
-  const [notification, setNotification] = useState<Boolean | null>(null)
+  const [notification, setNotification] = useState<MessagePayload | null>(null)
   /**
    * BEGIN process FCM received
    */
   const messaging = getMessaging();
   onMessage(messaging, (payload) => {
     console.log('Message received. ', payload);
-    setNotification(true)
+    setNotification(payload)
   });
 
   /**
@@ -81,9 +81,9 @@ function MainLayout() {
         {
           notification ? (
             <NoticeBar
-              content={'自定义图标'}
+              content={notification.notification?.title + ' - ' + notification.notification?.body}
               closeable={true}
-
+              onClose={() => setNotification(null)}
             />
           ) : null
         }
