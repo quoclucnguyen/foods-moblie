@@ -64,7 +64,7 @@ function Login() {
           </Button>
         }
       >
-        <Form.Header>Login</Form.Header>
+        <Form.Header>Login (user/123456 for demo)</Form.Header>
         <Form.Item
           name="username"
           label="Username"
@@ -79,7 +79,9 @@ function Login() {
         >
           <Input placeholder="Input password" type="password" />
         </Form.Item>
+
       </Form>
+      
     </div>
   )
 }
