@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@apollo/client'
+import { AutoCenter } from 'antd-mobile'
 import React, { useEffect } from 'react'
 import { useAuth, useIsHasUnReadNotification } from '../../App'
 import { IS_HAS_UN_READ_NOTIFICATION } from './graphql'
@@ -12,7 +13,13 @@ function Dashboard() {
     isHasUnReadNotification.set(data?.isHasUnreadNotification ?? false)
   }, [data])
   return (
-    <div>Dashboard {auth.user?.displayName}</div>
+    <div style={{ width: '100%' }}>
+      <AutoCenter>
+        Welcome to Foods moblie app.
+        <br />
+        This dashboard pages with update later.
+      </AutoCenter>
+    </div>
   )
 }
 
